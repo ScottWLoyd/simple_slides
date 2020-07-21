@@ -103,7 +103,23 @@ int main(int argc, char** argv) {
         return 1;
     }
     
-    TTF_Font* default_font = TTF_OpenFont("c:/windows/fonts/arial.ttf", 75);    
+#if _WIN32
+    const char* default_font_path = "c:/windows/fonts/arial.ttf";
+#else
+	const char* default_font_path = "";
+	const char* cmd = "fc-match --format=%{file} arial 2>&1";
+	FILE* stream = popen(cmd, "r");
+	const int max_buffer = 256;
+	char buffer[max_buffer];
+	if (stream) {
+		while(!feof(stream)) {
+			if (fgets(buffer, max_buffer, stream) != 0)
+				default_font_path = buffer;			
+		}
+	}
+
+#endif
+    TTF_Font* default_font = TTF_OpenFont(default_font_path, 75);    
     if (!default_font) {
         printf("Failed to open font file: %s\n", TTF_GetError());
         return 1;
@@ -158,12 +174,12 @@ int main(int argc, char** argv) {
         for (int i=0; i<slide->num_text_blocks; i++) {
             TextBlock* block = slide->text_blocks + i;
 
-            SDL_Surface* surf = TTF_RenderText_Blended(style.font, block.text, slide.text_color);
+            SDL_Surface* surf = TTF_RenderText_Blended(style.font, block->text, style.fg_color);
             SDL_Texture* texture = SDL_CreateTextureFromSurface(state->renderer, surf);
 
             int text_width = 0;
             int text_height = 0;
-            if ((TTF_SizeText(slide.font, slide.text, &text_width, &text_height) < 0)) {
+            if ((TTF_SizeText(style.font, block->text, &text_width, &text_height) < 0)) {
                 printf("Error measuring text: %s\n", TTF_GetError());
                 return 1;
             }
@@ -174,26 +190,26 @@ int main(int argc, char** argv) {
             int window_height = 0;
             SDL_GL_GetDrawableSize(state->window, &window_width, &window_height);
             SDL_Rect dst_rect = {0};
-            if (slide.v_align == Middle) {
+            if (block->v_align == Middle) {
                 dst_rect.y = (window_height - text_height) * 0.5f;
             }
-            else if (slide.v_align == Bottom) {
+            else if (block->v_align == Bottom) {
                 dst_rect.y = (window_height - text_height);
             }
-            if (slide.h_align == Center) {
+            if (block->h_align == Center) {
                 dst_rect.x = (window_width - text_width) * 0.5f;
             }
-            else if (slide.h_align == Right) {
+            else if (block->h_align == Right) {
                 dst_rect.x = (window_width - text_width);
             }
             dst_rect.w = src_rect.w;
             dst_rect.h = src_rect.h;
 
-            if (slide.shadow_color.a != 0) {
+            if (style.shadow_color.a != 0) {
                 SDL_Rect shadow_rect = dst_rect;
-                shadow_rect.x += slide.shadow_offset.x;
-                shadow_rect.y += slide.shadow_offset.y;
-                SDL_Surface* shadow = TTF_RenderText_Blended(slide.font, slide.text, slide.shadow_color);
+                shadow_rect.x += style.shadow_offset.x;
+                shadow_rect.y += style.shadow_offset.y;
+                SDL_Surface* shadow = TTF_RenderText_Blended(style.font, block->text, style.shadow_color);
                 SDL_Texture* shadow_texture = SDL_CreateTextureFromSurface(state->renderer, shadow);
                 SDL_RenderCopy(state->renderer, shadow_texture, &src_rect, &shadow_rect);
 
@@ -209,7 +225,7 @@ int main(int argc, char** argv) {
         SDL_RenderPresent(state->renderer);
     }
 
-    TTF_CloseFont(slide.font);
+    TTF_CloseFont(state->default_style->font);
     
     SDL_DestroyRenderer(state->renderer);
     SDL_DestroyWindow(state->window);
