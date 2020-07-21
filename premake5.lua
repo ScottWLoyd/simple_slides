@@ -1,10 +1,13 @@
 workspace "SimpleSlides"
     configurations { "Debug", "Release" }
+    platforms { "x64" }
 
 project "SimpleSlides"
     kind "ConsoleApp"
     language "C"
     targetdir "bin/%{cfg.buildcfg}"
+
+    require "ext/src/SDL2"
 
     files 
     {
@@ -25,3 +28,6 @@ project "SimpleSlides"
             "NDEBUG"
         }
         optimize "On"
+
+    filter "platforms:x64"
+        architecture "x86_64"
