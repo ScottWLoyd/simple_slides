@@ -1,18 +1,29 @@
 workspace "SimpleSlides"
-    configurations { "Debug", "Release" }
-    platforms { "x64" }
+    configurations { "Debug", "Release" }    
+    architecture "x64"
+
+include "ext/src/SDL2/SDL2.lua"
 
 project "SimpleSlides"
     kind "ConsoleApp"
     language "C"
     targetdir "bin/%{cfg.buildcfg}"
 
-    require "ext/src/SDL2"
-
     files 
     {
         "src/**.h",
         "src/**.c"
+    }
+
+    includedirs 
+    {
+        "src",
+        "ext/src/SDL2/include"
+    }
+
+    links 
+    {
+        "SDL2"
     }
 
     filter "configurations:Debug"
@@ -29,5 +40,4 @@ project "SimpleSlides"
         }
         optimize "On"
 
-    filter "platforms:x64"
-        architecture "x86_64"
+    
