@@ -2,6 +2,7 @@
 #define TYPES_H
 
 #include <SDL.h>
+#include <stb_truetype.h>
 
 typedef SDL_Color Color;
 
@@ -15,24 +16,24 @@ static const Color medium_grey = {133, 133, 133, 255};
 static const Color dark_grey = {60, 60, 60, 255};
 
 
-#if 0
-inline Color color4f(float r, float g, float b, float a) {
-    Color result;
-    
-    result.r = (uint8_t)(r * 255.0f);
-    result.g = (uint8_t)(g * 255.0f);
-    result.b = (uint8_t)(b * 255.0f);
-    result.a = (uint8_t)(a * 255.0f);
-}
-
-inline Color color3f(float r, float g, float b) {
-    return color4f(r, g, b, 1);
-}
-#endif
-
 typedef struct Vector {
     float x, y;
 } Vector;
+
+typedef struct Bitmap {
+    int width;
+    int height;
+    unsigned char* data;
+} Bitmap;
+unsigned char* bitmap;
+
+typedef struct Font {
+    const char* path;
+    float point_size;
+    stbtt_bakedchar* chars;
+    //Bitmap bitmap;
+    SDL_Surface* surf;
+} Font;
 
 typedef enum VerticalAlignment {
     Top,
@@ -60,7 +61,7 @@ typedef struct Style {
     Color bg_color;
     Color shadow_color;
     Vector shadow_offset;
-    TTF_Font* font;
+    Font* font;
 } Style;
 
 typedef struct TextLine {
@@ -89,6 +90,7 @@ typedef struct Slide {
 typedef struct GlobalState {
     SDL_Window* window;
     SDL_Renderer* renderer;
+    //SDL_GLContext context;
     int running;
 
     Style* default_style;    

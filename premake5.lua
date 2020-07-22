@@ -40,4 +40,8 @@ project "SimpleSlides"
         }
         optimize "On"
 
-    
+    filter "system:Windows"
+        defines
+        {
+            "PLATFORM_WINDOWS" 
+		  }
