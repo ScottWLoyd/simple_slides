@@ -9,106 +9,14 @@
 
 #include "types.h"
 #include "util.h"
-#include "stb_truetype.h"
-#include "stb_image_write.h"
+#include "renderer.h"
+#include "font_renderer.h"
 
-Color style_get_bg_color(Style* style) {
+Color4f style_get_bg_color(Style* style) {
     if (style->override_bg_color || !style->base)
         return style->bg_color;
     return style_get_bg_color(style->base);
 }
-
-Font* open_font(const char* path, float pixel_size) {
-    Font* result = 0;
-
-    ReadFileResult file = read_file(path);
-    if (!file.success) {
-        printf("Failed to open file!");
-        return result;
-    }
-
-    result = malloc(sizeof(Font));
-    result->path = path;
-    result->point_size = pixel_size;
-
-    int bytes_per_pixel = 4;
-    Bitmap bitmap;
-    bitmap.width = pixel_size * 48;
-    bitmap.height = pixel_size * 2;
-    unsigned char* monochrome_data = malloc(bitmap.width * bitmap.height * 1);
-
-    result->chars = malloc(sizeof(stbtt_bakedchar) * 96);
-    stbtt_BakeFontBitmap(file.data, 0, pixel_size, monochrome_data, bitmap.width, bitmap.height, 32, 96, result->chars);
-
-    // blow the alpha-only image up into 4 channel
-    bitmap.data = malloc(bitmap.width * bitmap.height * bytes_per_pixel);
-    unsigned char* a = monochrome_data;
-    unsigned int* pixel = bitmap.data;
-    for (int i = 0; i < bitmap.width * bitmap.height; i++) {
-        *pixel = (*a << 24) | (0xFF << 16) | (*a << 8) | (*a);
-        pixel++;
-        a++;
-    }
-    free(monochrome_data);
-
-    stbi_write_png("test_font.png", bitmap.width, bitmap.height, 1, bitmap.data, bytes_per_pixel * bitmap.width);
-
-    result->surf = SDL_CreateRGBSurfaceWithFormatFrom(bitmap.data, bitmap.width, bitmap.height, 32, bytes_per_pixel * bitmap.width, SDL_PIXELFORMAT_RGBA32);
-
-    return result;
-}
-
-SDL_Rect measure_text(Font* font, const char* text) {
-    SDL_Rect result = { 0 };
-
-    float x = 0;
-    float y = 0;
-    while (*text) {
-        if (*text >= 32 && *text < 128) {
-            stbtt_aligned_quad q;
-            stbtt_GetBakedQuad(font->chars, font->surf->w, font->surf->h, *text - 32, &x, &y, &q, 0);//1=opengl & d3d10+,0=d3d9                        
-
-            if (text[1] >= 32 && text[1] < 128) {
-                result.x = x + (q.x1 - q.x0);
-                result.y = y + (q.y1 - q.y0);
-            }
-        }
-        ++text;
-    }
-
-    return result;
-}
-
-SDL_Texture* render_text(Font* font, const char* text, Color color) {
-    SDL_Texture* result = 0;
-
-    SDL_Rect surf_size = measure_text(font, text);
-    SDL_Surface* temp_surf = SDL_CreateRGBSurfaceWithFormat(0, surf_size.w, surf_size.h, 32, SDL_PIXELFORMAT_RGBA32);
-
-    float x = 0;
-    float y = 0;
-    while (*text) {
-        if (*text >= 32 && *text < 128) {
-            stbtt_aligned_quad q;
-            stbtt_GetBakedQuad(font->chars, font->surf->w, font->surf->h, *text - 32, &x, &y, &q, 0);//1=opengl & d3d10+,0=d3d9
-
-            SDL_Rect src_rect = { q.s0 * font->surf->w, q.t0 * font->surf->h, (q.s1 - q.s0) * font->surf->w, (q.t1 - q.t0) * font->surf->h };
-            SDL_Rect dst_rect = { q.x0, q.y0, q.x1 - q.x0, q.y1 - q.y0 };
-            SDL_BlitSurface(font->surf, &src_rect, temp_surf, &dst_rect);
-            //glTexCoord2f(q.s0, q.t1); glVertex2f(q.x0, q.y0);
-            //glTexCoord2f(q.s1, q.t1); glVertex2f(q.x1, q.y0);
-            //glTexCoord2f(q.s1, q.t0); glVertex2f(q.x1, q.y1);
-            //glTexCoord2f(q.s0, q.t0); glVertex2f(q.x0, q.y1);
-        }
-        ++text;
-    }
-
-    result = SDL_CreateTextureFromSurface(state->renderer, temp_surf);
-    SDL_FreeSurface(temp_surf);
-
-    return result;
-}
-
 
 Style get_aggregate_style(Slide* slide, TextBlock* block) {
     Style result = {0};
@@ -189,32 +97,40 @@ void check_sdl_error(int line) {
 #endif
 }
 
-void set_color(GlobalState* state, Color color) {
-    SDL_SetRenderDrawColor(state->renderer, color.r, color.g, color.b, color.a);
+int initialize_graphics(void) {
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        printf("Failed to init SDL: %s\n", SDL_GetError());
+        return 0;
+    }
+
+    state->window = SDL_CreateWindow("SimpleSlides",
+        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 
+        1280, 720, 
+        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    if (!state->window) {
+        printf("failed to create window: %s\n", SDL_GetError());
+        return 0;
+    }
+
+    if (!init_renderer()) {
+        printf("failed to initialize renderer\n");
+        return 0;
+    }
+
+    return 1;
 }
 
 int main(int argc, char** argv) {
 
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        printf("Failed to init SDL: %s\n", SDL_GetError());
-        return 1;
-    }
-
     state = malloc(sizeof(GlobalState));
     state->running = 0;
-    
-    state->window = SDL_CreateWindow("SimpleSlides",
-        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-        1280, 720, SDL_WINDOW_SHOWN);
-    if (!state->window) {
-        printf("Failed to create window/renderer: %s\n", SDL_GetError());
+
+    if (!initialize_graphics()) {
+        printf("Exiting...\n");
         return 1;
     }
-    state->renderer = SDL_CreateRenderer(state->window, -1, 
-        SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
 
-
-    SDL_SetRenderDrawBlendMode(state->renderer, SDL_BLENDMODE_BLEND);
+    
     
 #if PLATFORM_WINDOWS
     const char* default_font_path = "c:/windows/fonts/arial.ttf";
@@ -239,7 +155,7 @@ int main(int argc, char** argv) {
         
     state->default_style = malloc(sizeof(Style));
     state->default_style->font = default_font;
-    state->default_style->bg_color = white;
+    state->default_style->bg_color = light_blue;
     state->default_style->fg_color = black;
     state->default_style->shadow_color = dark_grey;
     state->default_style->shadow_offset = (Vector){.x = 2, .y = 2};
@@ -268,12 +184,14 @@ int main(int argc, char** argv) {
     
         Style style = get_aggregate_style(slide, 0);
     
-        set_color(state, style.bg_color);
-        SDL_RenderClear(state->renderer);        
+        render_clear(style.bg_color);
 
-        SDL_Texture* texture = render_text(default_font, "Consigliere!", dark_grey);
-        SDL_Rect dest_rect = { 0, 0, default_font->surf->w, default_font->surf->h };
-        SDL_RenderCopy(state->renderer, texture, 0, &dest_rect);
+        //SDL_Texture* texture = render_text(default_font, "Consigliere!", dark_grey);
+        //SDL_Rect dest_rect = { 0, 0, default_font->surf->w, default_font->surf->h };
+        //SDL_RenderCopy(state->renderer, texture, 0, &dest_rect);
+        render_start_batch();
+        render_fill_rect(50, 50, 250, 250, light_yellow);
+        render_end_batch();
 
 #if 0
         for (int i=0; i<slide->num_text_blocks; i++) {
@@ -328,7 +246,7 @@ int main(int argc, char** argv) {
         }
 #endif
 
-        SDL_RenderPresent(state->renderer);
+        SDL_GL_SwapWindow(state->window);
     }
 
     // TODO(scott): close/destroy fonts

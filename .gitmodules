@@ -1,3 +1,0 @@
-[submodule "ext/src/SDL2"]
-	path = ext/src/SDL2
-	url = https://github.com/scottwloyd/SDL2.git

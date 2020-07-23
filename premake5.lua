@@ -18,6 +18,7 @@ project "SimpleSlides"
     includedirs 
     {
         "src",
+        "src/glad",
         "ext/src/SDL2/include"
     }
 
