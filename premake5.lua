@@ -2,8 +2,6 @@ workspace "SimpleSlides"
     configurations { "Debug", "Release" }    
     architecture "x64"
 
-include "ext/src/SDL2/SDL2.lua"
-
 project "SimpleSlides"
     kind "ConsoleApp"
     language "C"
@@ -19,7 +17,7 @@ project "SimpleSlides"
     {
         "src",
         "src/glad",
-        "ext/src/SDL2/include"
+        "ext/src/glfw/include"
     }
 
     links 
@@ -45,4 +43,21 @@ project "SimpleSlides"
         defines
         {
             "PLATFORM_WINDOWS" 
-		  }
+        }
+
+project "glfw"
+    kind "StaticLib"
+    language "C"
+    targetdir "bin/%{cfg.buildcfg}"
+
+    files 
+    {
+        "ext/src/glfw/src/**.c",
+        "ext/src/glfw/deps/**.c"
+    }
+
+    includedirs
+    {
+        "ext/src/glfw/include",
+        "ext/src/glfw/deps"
+    }

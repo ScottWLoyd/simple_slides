@@ -4,8 +4,8 @@
 #include <string.h>
 #include <assert.h>
 
-#define SDL_MAIN_HANDLED
-#include <SDL.h>
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
 
 #include "types.h"
 #include "util.h"
@@ -86,31 +86,35 @@ TextBlock* new_text_block(Slide* slide, const char* text) {
 
 GlobalState* state;
 
-void check_sdl_error(int line) {
-#ifdef DEBUG
-    const char* error = SDL_GetError();
-    if (*error != '\0') {
-        printf("SDL Error: %s\n", error);
-        printf(" line: %d\n", line);
-        SDL_ClearError();
-    }
-#endif
+static void glfw_error_callback(int error, const char* description) {
+    printf("Error: %s\n", description);
+}
+
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+
 }
 
 int initialize_graphics(void) {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        printf("Failed to init SDL: %s\n", SDL_GetError());
+    if (!glfwInit()) {
+        printf("Failed to init GLFW\n");
         return 0;
     }
 
-    state->window = SDL_CreateWindow("SimpleSlides",
-        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 
-        1280, 720, 
-        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    glfwSetErrorCallback(glfw_error_callback);
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+
+    int window_width = 1280;
+    int window_height = 720;
+    state->window = glfwCreateWindow(window_width, window_height, "SimpleSlides", 0, 0);
     if (!state->window) {
-        printf("failed to create window: %s\n", SDL_GetError());
+        printf("failed to create window\n");
         return 0;
     }
+
+    glfwSetKeyCallback(state->window, key_callback);
+    glfwSwapInterval(1);
 
     if (!init_renderer()) {
         printf("failed to initialize renderer\n");
@@ -163,25 +167,11 @@ int main(int argc, char** argv) {
 
     Slide* slide = new_slide_with_style(state->default_style);
     TextBlock* block = new_text_block(slide, "Hey look! Some Awesome Text! :-)\nThat even does\nmultiline text!");
+        
+    while(!glfwWindowShouldClose(state->window)) {
 
-
-    SDL_Event event;
-    state->running = 1;
-    while(state->running) {
-
-        while(SDL_PollEvent(&event)) {
-            switch(event.type) {
-                case SDL_QUIT:
-                    state->running = 0;
-                    break;
-
-                
-
-                default:
-                    break;
-            }
-        }
-    
+        glfwPollEvents();
+        
         Style style = get_aggregate_style(slide, 0);
     
         render_clear(style.bg_color);
@@ -246,14 +236,12 @@ int main(int argc, char** argv) {
         }
 #endif
 
-        SDL_GL_SwapWindow(state->window);
+        glfwSwapBuffers(state->window);
     }
 
     // TODO(scott): close/destroy fonts
-    
-    //SDL_DestroyRenderer(state->renderer);
-    //SDL_DestroyWindow(state->window);
-    //SDL_Quit();
+    glfwDestroyWindow(state->window);
+    glfwTerminate();
 
     return 0;
 }

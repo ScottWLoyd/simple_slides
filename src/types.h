@@ -4,7 +4,8 @@
 #include <renderer.h>
 #include <font_renderer.h>
 
-#include <SDL.h>
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
 #include <stb_truetype.h>
 
 typedef struct Vector {
@@ -64,8 +65,8 @@ typedef struct Slide {
 } Slide;
 
 typedef struct GlobalState {
-    SDL_Window* window;
-    SDL_GLContext context;
+    GLFWwindow* window;
+    
     int running;
 
     Style* default_style;    

@@ -23,27 +23,15 @@ static RendererState* renderer_state;
 
 int init_renderer(void) {
     
-    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-
-    state->context = SDL_GL_CreateContext(state->window);
-    if (!state->context) {
-        printf("Failed to create OpenGL Context: %s\n", SDL_GetError());
-        return 0;
-    }
-
-    SDL_GL_MakeCurrent(state->window, state->context);
+    glfwMakeContextCurrent(state->window);
     
-    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
+    if (!gladLoadGLLoader(glfwGetProcAddress)) {
         printf("Attempted to load GLAD without an OpenGL Context!\n");
         return 0;
     }
 
     int window_width, window_height;
-    SDL_GL_GetDrawableSize(state->window, &window_width, &window_height);
+    glfwGetFramebufferSize(state->window, &window_width, &window_height);
     glViewport(0, 0, window_width, window_height);
 
     printf("OpenGL Version: %d.%d\n", GLVersion.major, GLVersion.minor);
